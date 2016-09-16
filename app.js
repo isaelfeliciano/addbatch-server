@@ -27,6 +27,15 @@ MongoClient.connect('mongodb://localhost:27017/addbatch', function(err, db) {
   }
 });
 
+var insertDocument = function(filter, doc, callback) {
+  mongoDbObj.batchCollection.updateOne(filter, 
+    {$set: doc}, 
+    {upsert: true},
+    function (err, result){
+      callback(err, result);
+    });
+};
+
 
 // view engine setup
 app.set('views', path.join(__dirname, 'views'));
@@ -51,8 +60,16 @@ app.use('/users', users);
 
 
 app.use('/saveBatchAndPrint', (req, res) => {
-  console.log(req.body);
-  res.send('200');
+    console.log(req.body);
+  insertDocument({'id': req.body.id}, req.body, (err, result) => {
+    if (err) {
+      console.log(err);
+      res.json({'msg': 'error-saving'})
+    } else {
+      console.log('Batch saved to DB');
+      res.json({'msg': 'saved'});
+    }
+  });
 });
 
 
