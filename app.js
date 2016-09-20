@@ -36,6 +36,17 @@ var insertDocument = function(filter, doc, callback) {
     });
 };
 
+var getBatch = function(batchNumber, callback) {
+  var myCursor = mongoDbObj.batchCollection.findOne({"batchNumber": batchNumber}, function(err, doc) {
+    if(err) {
+      callback(err);
+      console.log("Error getting the batch info");
+    } else {
+      callback(null, doc);
+    }
+  });
+}
+
 
 // view engine setup
 app.set('views', path.join(__dirname, 'views'));
@@ -68,6 +79,22 @@ app.use('/saveBatchAndPrint', (req, res) => {
     } else {
       console.log('Batch saved to DB');
       res.json({'msg': 'saved'});
+    }
+  });
+});
+
+app.use('/searchBatch', (req, res) => {
+  let batchNumber = req.param('batchid');
+  console.log(batchNumber);
+  getBatch(batchNumber, (err, data) => {
+    console.log(data);
+    if (data === null) {
+      return res.json({'msg': 'batch-no-exist'});
+    }
+    if (err) {
+      res.json({'msg': 'error-searching'});
+    } else {
+      res.send({'msg': 'batch-exist'});
     }
   });
 });
