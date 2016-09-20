@@ -71,7 +71,7 @@ app.use('/users', users);
 
 
 app.use('/saveBatchAndPrint', (req, res) => {
-    console.log(req.body);
+    console.log(JSON.stringify(req.body));
   insertDocument({'id': req.body.id}, req.body, (err, result) => {
     if (err) {
       console.log(err);
@@ -84,10 +84,9 @@ app.use('/saveBatchAndPrint', (req, res) => {
 });
 
 app.use('/searchBatch', (req, res) => {
-  let batchNumber = req.param('batchid');
+  var batchNumber = req.param('batchid');
   console.log(batchNumber);
   getBatch(batchNumber, (err, data) => {
-    console.log(data);
     if (data === null) {
       return res.json({'msg': 'batch-no-exist'});
     }
@@ -95,6 +94,21 @@ app.use('/searchBatch', (req, res) => {
       res.json({'msg': 'error-searching'});
     } else {
       res.send({'msg': 'batch-exist'});
+    }
+  });
+});
+
+app.use('/searchBatchGetJSON', (req, res) => {
+  var batchNumber = req.param('batchid');
+  console.log(batchNumber);
+  getBatch(batchNumber, (err, data) => {
+    if (data === null) {
+      return res.json({'msg': 'batch-no-exist'});
+    }
+    if (err) {
+      res.json({'msg': 'error-searching'});
+    } else {
+      res.json(data);
     }
   });
 });
