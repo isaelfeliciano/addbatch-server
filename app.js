@@ -37,6 +37,7 @@ var insertDocument = function(filter, doc, callback) {
 };
 
 var getBatch = function(batchNumber, callback) {
+  batchNumber = parseInt(batchNumber);
   var myCursor = mongoDbObj.batchCollection.findOne({"batchNumber": batchNumber}, function(err, doc) {
     if(err) {
       callback(err);
@@ -71,7 +72,6 @@ app.use('/users', users);
 
 
 app.use('/saveBatchAndPrint', (req, res) => {
-    console.log(JSON.stringify(req.body));
   insertDocument({'id': req.body.id}, req.body, (err, result) => {
     if (err) {
       console.log(err);
@@ -85,7 +85,6 @@ app.use('/saveBatchAndPrint', (req, res) => {
 
 app.use('/searchBatch', (req, res) => {
   var batchNumber = req.param('batchid');
-  console.log(batchNumber);
   getBatch(batchNumber, (err, data) => {
     if (data === null) {
       return res.json({'msg': 'batch-no-exist'});
