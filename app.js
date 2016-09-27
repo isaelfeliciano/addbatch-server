@@ -40,11 +40,19 @@ var getBatch = function(batchNumber, callback) {
   batchNumber = parseInt(batchNumber);
   var myCursor = mongoDbObj.batchCollection.findOne({"batchNumber": batchNumber}, function(err, doc) {
     if(err) {
-      callback(err);
       console.log("Error getting the batch info");
-    } else {
-      callback(null, doc);
+      return callback(err);
     }
+    callback(null, doc);
+  });
+}
+
+var deleteBatch = function(batchID, callback) {
+  let myCursor = mongoDbObj.batchCollection.deleteOne({"id": batchID}, function(err, doc) {
+    if (err) {
+      return callback(err);
+    }
+    callback(null, doc);
   });
 }
 
@@ -84,7 +92,7 @@ app.use('/saveBatchAndPrint', (req, res) => {
 });
 
 app.use('/searchBatch', (req, res) => {
-  var batchNumber = req.param('batchid');
+  let batchNumber = req.param('batchid');
   getBatch(batchNumber, (err, data) => {
     if (data === null) {
       return res.json({'msg': 'batch-no-exist'});
@@ -98,7 +106,7 @@ app.use('/searchBatch', (req, res) => {
 });
 
 app.use('/searchBatchGetJSON', (req, res) => {
-  var batchNumber = req.param('batchid');
+  let batchNumber = req.param('batchid');
   console.log(batchNumber);
   getBatch(batchNumber, (err, data) => {
     if (data === null) {
@@ -109,6 +117,19 @@ app.use('/searchBatchGetJSON', (req, res) => {
     } else {
       res.json(data);
     }
+  });
+});
+
+app.use("/deleteBatch", (req, res) => {
+  let batchID = req.param('batchid');
+  console.log(batchID);
+  deleteBatch(batchID, (err, data) => {
+    if (err) {
+      console.log("error-deleting-batch");
+      return res.send("error-deleting-batch");
+    }
+    console.log("batch-deleted");
+    res.send("batch-deleted");
   });
 });
 
