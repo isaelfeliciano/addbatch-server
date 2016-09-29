@@ -115,6 +115,7 @@ app.use('/searchBatchGetJSON', (req, res) => {
     if (err) {
       res.json({'msg': 'error-searching'});
     } else {
+      data.msg = "batch-json";
       res.json(data);
     }
   });
