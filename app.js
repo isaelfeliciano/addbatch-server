@@ -132,7 +132,7 @@ app.use("/deleteBatch", (req, res) => {
       return res.send("error-deleting-batch");
     }
     console.log("batch-deleted");
-    res.send("batch-deleted");
+    res.json({'msg': 'batch-deleted'});
   });
 });
 
