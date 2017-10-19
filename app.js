@@ -17,14 +17,15 @@ var users = require('./routes/users');
 var app = express();
 
 // DB Setup
-MongoClient.connect('mongodb://localhost:27017/addbatch', function(err, db) {
+MongoClient.connect('mongodb://127.0.0.1:27017/addbatch', function(err, db) {
   if (err) {
     console.log(err);
   }
   else {
     console.log("Connected to DB");
     mongoDbObj = {db: db,
-      batchCollection: db.collection('batchCollection')
+      batchCollection: db.collection('batchCollection'),
+      // batchRange: db.collection('batchRange')
     }
   }
 });
@@ -57,6 +58,17 @@ var deleteBatch = function(batchID, callback) {
     callback(null, doc);
   });
 }
+
+/*var getBatchNumberByBeginingNumber = function(beginingNumber, callback) {
+  console.log(beginingNumber);
+  var myCursor = mongoDbObj.batchRange.findOne({"beginingNumber": parseInt(beginingNumber)}, function(err, doc) {
+    if (err) {
+      console.log("Error getting begining number");
+      return callback(err);
+    }
+    callback(null, doc)
+  });
+}*/
 
 
 // view engine setup
@@ -107,6 +119,32 @@ app.use('/searchBatch', (req, res) => {
   });
 });
 
+app.use('/getBatchNumberByBeginingNumber', (req, res) => {
+  let beginingNumber = req.param('batchid');
+  getBatchNumberByBeginingNumber(beginingNumber, (err, data) => {
+    if (data === null) {
+      return res.json({'msg': 'range-no-exist'});
+    }
+    if (err) {
+      res.json({'msg': 'error-searching'});
+    } else {
+      let batchNumber = data.batchNumber;
+      let batchRange = data;
+      getBatch(batchNumber, (err, data) => {
+        if (err) {
+          res.json({'msg': 'error-searching'});
+        }
+        console.log(data);
+        if (data === null) {
+          return res.json({'msg': 'batch-no-added', 'data': batchRange});
+        } else {
+          res.send({'msg': 'batch-exist'});
+        }
+      });
+    }
+  });
+})
+
 app.use('/searchBatchGetJSON', (req, res) => {
   let batchNumber = req.param('batchid');
   console.log(batchNumber);
@@ -135,6 +173,180 @@ app.use("/deleteBatch", (req, res) => {
     res.json({'msg': 'batch-deleted'});
   });
 });
+
+// Create functions to get: added batches, batches total, batches modified, tickets modified
+app.use("/getStatistics", (req, res) => {
+  Promise.all([
+    addedBatches(),
+    batchesTotal(),
+    modifiedBatches(),
+    modifiedBatchesTimes(),
+    addedTickets(),
+    modifiedTickets(),
+    modifiedTicketsTimes()
+  ])
+  .then((result) => {
+    console.log(result);
+    res.json({
+      'addedBatches': result[0],
+      'batchesTotal': result[1],
+      'modifiedBatches': result[2],
+      'modifiedBatchesTimes': result[3],
+      'addedTickets': result[4],
+      'modifiedTickets': result[5],
+      'modifiedTicketsTimes': result[6]
+    })
+  })
+  .catch((reason) => {
+    console.log(reason);
+  });
+});
+
+
+
+function addedBatches() {
+  return new Promise((resolve, reject) => {
+    mongoDbObj.batchCollection.find({}).toArray((err, result) => {
+      return resolve(result.length)
+    });
+  });
+}
+
+function batchesTotal() {
+  return new Promise((resolve, reject) => {
+    mongoDbObj.batchCollection.aggregate([ {$group: {_id: '$*', total: {$sum: '$total' } } } ]).toArray((err, result) => {
+      if (typeof(result[0]) !== 'undefined') {
+        return resolve(result[0].total)
+      }
+      return resolve(0);
+    });
+  });
+}
+
+function modifiedBatches() {
+  return new Promise((resolve, reject) => {
+    mongoDbObj.batchCollection.aggregate([
+      { 
+        $match: { 
+          'modified': {
+            $gte: 1
+          } 
+        } 
+      }, 
+      {
+        $group: {
+          _id: '$*', 
+          count: { 
+            $sum: 1
+          } 
+        } 
+      }
+    ]).toArray((err, result) => {
+      if (err) return reject(err);
+      if (typeof(result[0]) !== 'undefined') {
+        return resolve(result[0].count)
+      }
+      return resolve(0);
+    });
+  });
+}
+
+function modifiedBatchesTimes() {
+  return new Promise((resolve, reject) => {
+    mongoDbObj.batchCollection.aggregate([
+      {
+        $group: { 
+          _id: '$*', 
+          total: {$sum: '$modified'}
+        }
+      }
+    ]).toArray((err, result) => {
+      if (typeof(result[0]) !== 'undefined') {
+        return resolve(result[0].total)
+      }
+      return resolve(0);
+    });
+  });
+}
+
+function addedTickets() {
+  return new Promise((resolve, reject) => {
+    mongoDbObj.batchCollection.aggregate([
+      {
+        $unwind: "$tickets"
+      },
+      {
+        $match: {
+          'tickets.quantity': { $gte: 1}
+        }
+      },
+      {
+        $group: {
+          _id: '$*',
+          count: {$sum: 1}
+        }
+      }
+    ]).toArray((err, result) => {
+      if (err) return reject(err);
+      if (typeof(result[0]) !== 'undefined') {
+        return resolve(result[0].count)
+      }
+      return resolve(0);
+    });
+  });
+}
+
+function modifiedTickets() {
+  return new Promise((resolve, reject) => {
+    mongoDbObj.batchCollection.aggregate([
+      { $unwind: "$tickets" },
+      {
+        $match: {
+          'tickets.modified': { $gte: 1}
+        }
+      },
+      {
+        $group: {
+          _id: '$*',
+          count: { $sum: 1}
+        }
+      }
+    ]).toArray((err, result) => {
+      if (err) return reject(err);
+      if (typeof(result[0]) !== 'undefined') {
+        return resolve(result[0].count)
+      }
+      return resolve(0);
+    });
+  });
+}
+
+function modifiedTicketsTimes() {
+  return new Promise((resolve, reject) => {
+    mongoDbObj.batchCollection.aggregate([
+      { $unwind: "$tickets" },
+      {
+        $match: {
+          'tickets.modified': { '$gte': 1 }
+        }
+      },
+      {
+        $group: {
+          _id: '$*',
+          total: { $sum: '$tickets.modified' }
+        }
+      }
+    ]).toArray((err, result) => {
+      if (err) return reject(err);
+      if (typeof(result[0]) !== 'undefined') {
+        return resolve(result[0].total)
+      }
+      return resolve(0);
+    });
+  });
+}
+
+
 
 
 // catch 404 and forward to error handler
